@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10271f">
+  <meta name="description" content="2026年华北高校立直麻将团体赛实时积分与赛事记录系统">
+  <title>北境雀阵｜2026华北高校立直麻将团体赛</title>
+  <link rel="preconnect" href="https://cdn.r-mj.com">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <header class="site-header">
+    <a class="brand" href="#ranking" aria-label="返回实时排名">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 48 48" role="img">
+          <rect x="4" y="4" width="40" height="40" rx="11"></rect>
+          <path d="M14 15h20M15 24h18M18 33h12"></path>
+          <circle cx="24" cy="24" r="4"></circle>
+        </svg>
+      </span>
+      <span><strong>北境雀阵</strong><small>HUABEI RIICHI 2026</small></span>
+    </a>
+    <nav class="main-nav" aria-label="主导航">
+      <button class="nav-link is-active" data-view="ranking">实时排名</button>
+      <button class="nav-link" data-view="tables">对局记录</button>
+    </nav>
+    <div class="header-actions">
+      <span class="live-state" id="liveState"><i></i><span>等待开赛</span></span>
+      <button class="icon-button" id="openAdmin" aria-label="打开数据中心" title="数据中心">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"></path><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.41 1.42-.07-.07a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.57V20h-2v-.09a1.7 1.7 0 0 0-1.1-1.56 1.7 1.7 0 0 0-1.88.35l-.06.06-1.42-1.41.07-.07a1.7 1.7 0 0 0 .34-1.88 1.7 1.7 0 0 0-1.57-1.03H7.7v-2h.1a1.7 1.7 0 0 0 1.55-1.1A1.7 1.7 0 0 0 9 9.39l-.06-.06 1.41-1.42.07.07a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.03-1.57V6.7h2v.1a1.7 1.7 0 0 0 1.1 1.55 1.7 1.7 0 0 0 1.88-.35l.06-.06 1.42 1.41-.07.07a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.57 1.03H21v2h-.1A1.7 1.7 0 0 0 19.4 15Z"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="view is-active" id="view-ranking">
+      <div class="page-hero content-wrap">
+        <div><span class="section-kicker">LIVE STANDINGS</span><h1>实时排名</h1><p>所有队伍的阶段精算分、原始持点与晋级线一览。</p></div>
+        <button class="primary-button compact" id="syncNow">同步数据 <span>↻</span></button>
+      </div>
+      <div class="content-wrap">
+        <div class="stage-tabs" id="stageTabs" role="tablist"></div>
+        <div class="ranking-toolbar">
+          <div class="round-filter" id="roundFilter"></div>
+          <label class="search-box"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input id="teamSearch" type="search" placeholder="搜索学校"></label>
+        </div>
+        <div class="ranking-layout">
+          <article class="panel leaderboard-panel">
+            <div class="table-scroll">
+              <table class="leaderboard">
+                <thead><tr><th>名次</th><th>参赛队伍</th><th>阶段精算分</th><th>原始持点</th><th>区间奖</th><th>警告</th><th>状态</th></tr></thead>
+                <tbody id="rankingBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="rankingEmpty" hidden>
+              <div class="empty-tile">東</div><h3>赛事尚未开始</h3><p>连接赛事编号或录入首场成绩后，排名会自动出现在这里。</p>
+            </div>
+          </article>
+          <aside class="ranking-aside">
+            <article class="panel cutoff-card"><span class="section-kicker">QUALIFICATION</span><h3>本阶段晋级线</h3><strong id="cutoffScore">—</strong><p id="cutoffText">前16名晋级第二轮</p><div class="progress-track"><i id="stageProgress"></i></div><small id="progressLabel">0 / 5 轮已完成</small></article>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-tables">
+      <div class="page-hero content-wrap">
+        <div><span class="section-kicker">MATCH LOG</span><h1>对局记录</h1><p>按桌追踪十个半庄的接力进程，并保留原始牌谱入口。</p></div>
+        <button class="secondary-button" id="addRecord">＋ 手工录分</button>
+      </div>
+      <div class="content-wrap">
+        <div class="log-filters"><select id="logStage" aria-label="选择阶段"></select><select id="logRound" aria-label="选择轮次"></select><button class="ghost-button" id="exportData">导出 JSON</button></div>
+        <div class="match-grid" id="matchGrid"></div>
+        <div class="empty-state panel" id="matchEmpty"><div class="empty-tile red">中</div><h3>还没有对局记录</h3><p>当前为赛前准备期。你可以先配置大凤林赛事编号，或用手工录分测试计分。</p><button class="primary-button compact" id="emptyAdd">录入测试成绩</button></div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer><span>2026 华北高校立直麻将团体赛</span><span>北京浪速雀庄中关村店 · 雀魂比赛场 233486</span><span>数据最后更新：<b id="lastUpdated">尚未同步</b></span></footer>
+
+  <dialog class="modal" id="adminModal">
+    <form method="dialog" class="modal-card" id="adminForm">
+      <div class="modal-head"><div><span class="section-kicker">DATA CENTER</span><h2>数据中心</h2></div><button class="close-button" value="cancel" aria-label="关闭">×</button></div>
+      <p class="modal-intro">已连接本届赛事的大凤林公开数据。所有访客打开网页后都会自动同步，并每60秒刷新一次。</p>
+      <label class="field"><span>大凤林赛事 CID</span><input id="cidInput" inputmode="numeric" value="219" readonly></label>
+      <label class="field"><span>数据接口</span><input id="apiInput" value="https://cdn.r-mj.com/api/data.php" readonly></label>
+      <label class="toggle-row"><span><b>自动刷新</b><small>每60秒读取一次公开数据</small></span><input id="autoRefresh" type="checkbox" checked disabled><i></i></label>
+      <div class="source-note"><b>正式数据源</b><span>2026华北高校立直麻将团体赛（CID 219），读取队伍、分组、持点与牌谱。</span></div>
+      <div class="modal-actions"><button class="primary-button compact" value="save">立即同步</button></div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="recordModal">
+    <form method="dialog" class="modal-card wide" id="recordForm">
+      <div class="modal-head"><div><span class="section-kicker">MANUAL ENTRY</span><h2>手工录入桌次结果</h2></div><button class="close-button" value="cancel" aria-label="关闭">×</button></div>
+      <div class="form-grid"><label class="field"><span>阶段</span><select id="recordStage"></select></label><label class="field"><span>轮次</span><input id="recordRound" type="number" min="1" max="5" value="1"></label><label class="field"><span>桌号</span><input id="recordTable" type="number" min="1" value="1"></label></div>
+      <div class="score-entry-head"><span>队伍</span><span>最终持点</span><span>警告</span><span>大将TOP</span></div>
+      <div id="scoreEntries"></div>
+      <p class="entry-hint">同分时按上方队伍顺序判定顺位；系统会自动计算顺位分、区间奖与精算分。</p>
+      <div class="modal-actions"><button class="ghost-button" value="cancel">取消</button><button class="primary-button compact" value="save">保存成绩</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js"></script>
+</body>
+</html>
