@@ -83,7 +83,8 @@ const STAGE_CUMULATIVE_WARNINGS = Object.freeze({
   stage1: Object.freeze({
     "北京浪速大学":1,
     "天津大学":1,
-    "中国政法大学":1
+    "中国政法大学":1,
+    "北京工商大学":1
   })
 });
 
