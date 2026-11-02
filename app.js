@@ -1,7 +1,7 @@
 const TEAMS = [
   "北京大学","中国人民大学","清华大学","北京交通大学","北京工业大学","北京航空航天大学","北京理工大学","北京科技大学",
   "北方工业大学","北京化工大学","北京工商大学","北京邮电大学","中国农业大学","北京师范大学","中国传媒大学","中央财经大学",
-  "首都经济贸易大学","北京信息科技大学","中国地质大学（北京）","中国石油大学（北京）","中国科学院大学","中国政法大学","北京浪速雀庄*","南开大学",
+  "首都经济贸易大学","北京信息科技大学","中国地质大学（北京）","中国石油大学（北京）","中国科学院大学","中国政法大学","北京浪速大学","南开大学",
   "天津大学","河北工业大学","中国民航大学","太原理工大学","山西农业大学","山西医科大学","内蒙古大学","太原工业学院"
 ];
 
@@ -19,6 +19,29 @@ const SCHEDULE = [
   { title:"线下决赛", note:"北京浪速雀庄中关村店", date:"11.28—11.29", stage:"final" }
 ];
 
+// 第一阶段30%的带入分，已按赛事公布结果舍尾保留两位。
+// 只计入“累计”排名；单轮页面只展示该轮本身，因此未开打轮次保持为空。
+const STAGE_INITIAL_SCORES = Object.freeze({
+  stage2: Object.freeze({
+    "北京师范大学":13.01,
+    "北京邮电大学":10.94,
+    "中央财经大学":10.15,
+    "中国科学院大学":9.57,
+    "中国地质大学（北京）":9.23,
+    "北京化工大学":9.14,
+    "北京理工大学":8.70,
+    "南开大学":8.25,
+    "内蒙古大学":7.65,
+    "中国人民大学":7.55,
+    "中国农业大学":7.02,
+    "太原工业学院":6.91,
+    "首都经济贸易大学":6.77,
+    "北京浪速大学":6.70,
+    "北京交通大学":6.69,
+    "北京科技大学":6.29
+  })
+});
+
 const OFFICIAL_SOURCE = Object.freeze({
   cid: "219",
   api: "https://cdn.r-mj.com/api/data.php",
@@ -35,7 +58,7 @@ const DEFAULT_STATE = {
 
 let state = loadState();
 let activeView = "ranking";
-let activeStage = "stage1";
+let activeStage = currentStageId();
 let activeRound = "all";
 let activeLogRound = "1";
 let refreshTimer = null;
@@ -67,6 +90,13 @@ function saveState(){
 
 function stageById(id){ return STAGES.find(stage => stage.id === id) || STAGES[0]; }
 function stageIndex(id){ return STAGES.findIndex(stage => stage.id === id); }
+function currentStageId(){
+  const now = new Date();
+  if (now >= new Date("2026-11-28T00:00:00+08:00")) return "final";
+  if (now >= new Date("2026-11-15T00:00:00+08:00")) return "stage3";
+  if (now >= new Date("2026-10-31T00:00:00+08:00")) return "stage2";
+  return "stage1";
+}
 function provinceOf(name){
   if (["南开大学","天津大学","河北工业大学","中国民航大学"].includes(name)) return "天津";
   if (["太原理工大学","山西农业大学","山西医科大学","太原工业学院"].includes(name)) return "山西";
@@ -101,12 +131,16 @@ function teamsForStage(stageId){
 
 function rankingForStage(stageId, round="all"){
   const stage = stageById(stageId);
-  const maxRound = round === "all" ? stage.rounds : Number(round);
-  const rows = new Map(teamsForStage(stageId).map((name, index) => [name, {name, order:index, score:0, raw:0, top:0, warnings:0, games:0}]));
+  const initialScores = round === "all" ? (STAGE_INITIAL_SCORES[stageId] || {}) : {};
+  const teamNames = [...new Set([...Object.keys(initialScores), ...teamsForStage(stageId)])];
+  const rows = new Map(teamNames.map((name, index) => {
+    const initial = floor2(Number(initialScores[name] || 0));
+    return [name, {name, order:index, score:initial, initial, raw:0, top:0, warnings:0, games:0}];
+  }));
 
-  state.records.filter(record => record.stage === stageId && Number(record.round) <= maxRound).forEach(record => {
+  state.records.filter(record => record.stage === stageId && (round === "all" ? Number(record.round) <= stage.rounds : Number(record.round) === Number(round))).forEach(record => {
     scoreRecord(record).forEach(team => {
-      if (!rows.has(team.name)) rows.set(team.name, {name:team.name, order:rows.size, score:0, raw:0, top:0, warnings:0, games:0});
+      if (!rows.has(team.name)) rows.set(team.name, {name:team.name, order:rows.size, score:0, initial:0, raw:0, top:0, warnings:0, games:0});
       const row = rows.get(team.name);
       row.score = floor2(row.score + team.score);
       row.raw += Number(team.points || 0);
@@ -174,7 +208,8 @@ function renderRankingTable(){
   $("#rankingBody").innerHTML = filtered.map(row => {
     const advancing = hasScores && row.rank <= stage.advance;
     const status = !row.games ? "待开赛" : advancing ? (activeStage === "final" ? "争冠区" : "晋级区") : "追赶区";
-    return `<tr class="${hasScores && row.rank===stage.advance ? "cutoff-row" : ""}"><td class="rank-cell">${String(row.rank).padStart(2,"0")}</td><td><div class="team-cell"><i class="team-monogram">${escapeHtml(monogram(row.name))}</i><span>${escapeHtml(row.name)}<small>${provinceOf(row.name)}</small></span></div></td><td class="score-cell">${row.games ? formatScore(row.score) : "—"}</td><td class="raw-cell">${row.games ? formatNumber(row.raw) : "—"}</td><td>${row.top ? `+${row.top.toFixed(1)}` : "—"}</td><td class="warning-cell">${row.warnings ? `−${row.warnings}` : "—"}</td><td><span class="status-pill ${advancing ? "" : "out"}"><i></i>${status}</span></td></tr>`;
+    const showScore = row.games || (activeRound === "all" && row.initial);
+    return `<tr class="${hasScores && row.rank===stage.advance ? "cutoff-row" : ""}"><td class="rank-cell">${String(row.rank).padStart(2,"0")}</td><td><div class="team-cell"><i class="team-monogram">${escapeHtml(monogram(row.name))}</i><span>${escapeHtml(row.name)}<small>${provinceOf(row.name)}${activeRound === "all" && row.initial ? ` · 初始 ${formatScore(row.initial)}` : ""}</small></span></div></td><td class="score-cell">${showScore ? formatScore(row.score) : "—"}</td><td class="raw-cell">${row.games ? formatNumber(row.raw) : "—"}</td><td>${row.top ? `+${row.top.toFixed(1)}` : "—"}</td><td class="warning-cell">${row.warnings ? `−${row.warnings}` : "—"}</td><td><span class="status-pill ${advancing ? "" : "out"}"><i></i>${status}</span></td></tr>`;
   }).join("");
   $("#rankingEmpty").hidden = filtered.length > 0;
   const cutoff = ranking[stage.advance-1];
