@@ -5,6 +5,41 @@ const TEAMS = [
   "天津大学","河北工业大学","中国民航大学","太原理工大学","山西农业大学","山西医科大学","内蒙古大学","太原工业学院"
 ];
 
+const TEAM_LOGOS = Object.freeze({
+  "北京大学":"./assets/logos/beijing-daxue.webp",
+  "中国人民大学":"./assets/logos/renmin.webp",
+  "清华大学":"./assets/logos/tsinghua.webp",
+  "北京交通大学":"./assets/logos/beijing-jiaotong.webp",
+  "北京工业大学":"./assets/logos/beijing-gongye.webp",
+  "北京航空航天大学":"./assets/logos/beihang.webp",
+  "北京理工大学":"./assets/logos/beijing-ligong.webp",
+  "北京科技大学":"./assets/logos/beijing-keji.webp",
+  "北方工业大学":"./assets/logos/beifang-gongye.webp",
+  "北京化工大学":"./assets/logos/beijing-huagong.webp",
+  "北京工商大学":"./assets/logos/beijing-gongshang.webp",
+  "北京邮电大学":"./assets/logos/beiyou.webp",
+  "中国农业大学":"./assets/logos/zhongguo-nongye.webp",
+  "北京师范大学":"./assets/logos/beishi.webp",
+  "中国传媒大学":"./assets/logos/zhongguo-chuanmei.webp",
+  "中央财经大学":"./assets/logos/yangcai.webp",
+  "首都经济贸易大学":"./assets/logos/shoujingmao.webp",
+  "北京信息科技大学":"./assets/logos/beijing-xinxi.webp",
+  "中国地质大学（北京）":"./assets/logos/zhongguo-dizhi.webp",
+  "中国石油大学（北京）":"./assets/logos/zhongguo-shiyou.webp",
+  "中国科学院大学":"./assets/logos/zhongke-da.webp",
+  "中国政法大学":"./assets/logos/zhongguo-zhengfa.webp",
+  "北京浪速大学":"./assets/logos/langsu.webp",
+  "南开大学":"./assets/logos/nankai.webp",
+  "天津大学":"./assets/logos/tianjin.webp",
+  "河北工业大学":"./assets/logos/hebei-gongye.webp",
+  "中国民航大学":"./assets/logos/zhongguo-minhang.webp",
+  "太原理工大学":"./assets/logos/taiyuan-ligong.webp",
+  "山西农业大学":"./assets/logos/shanxi-nongye.webp",
+  "山西医科大学":"./assets/logos/shanxi-yike.webp",
+  "内蒙古大学":"./assets/logos/neimenggu.webp",
+  "太原工业学院":"./assets/logos/taiyuan-gongye-xueyuan.webp"
+});
+
 const STAGES = [
   { id:"stage1", label:"第一轮 · 32进16", short:"32进16", rounds:5, advance:16, dates:"10.11—10.25", online:true },
   { id:"stage2", label:"第二轮 · 16进8", short:"16进8", rounds:5, advance:8, dates:"10.31—11.14", online:true },
@@ -80,8 +115,11 @@ const $$ = (selector, root=document) => [...root.querySelectorAll(selector)];
 // It is far below the precision of any score input and preserves the required downward rounding.
 const floor2 = value => Math.floor((Number(value) + 1e-9) * 100) / 100;
 const formatNumber = value => Number(value || 0).toLocaleString("zh-CN");
-const formatScore = value => `${Number(value) > 0 ? "+" : ""}${Number(value).toFixed(2)}`;
+const formatScore = value => Number(value).toFixed(2);
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]);
+const teamBadge = name => TEAM_LOGOS[name]
+  ? `<i class="team-monogram"><img src="${TEAM_LOGOS[name]}" alt="${escapeHtml(name)}队徽" loading="lazy" decoding="async"></i>`
+  : `<i class="team-monogram">${escapeHtml(monogram(name))}</i>`;
 
 function loadState(){
   try {
@@ -217,7 +255,7 @@ function renderTimeline(){
 
 function renderMiniRanking(){
   const ranking = rankingForStage("stage1","all").slice(0,5);
-  $("#miniRanking").innerHTML = ranking.map(row => `<div class="mini-row"><span class="mini-rank">${String(row.rank).padStart(2,"0")}</span><span class="mini-team"><i class="team-monogram">${escapeHtml(monogram(row.name))}</i>${escapeHtml(row.name)}</span><span class="mini-score">${row.games ? formatScore(row.score) : "—"}<small>pt</small></span></div>`).join("");
+  $("#miniRanking").innerHTML = ranking.map(row => `<div class="mini-row"><span class="mini-rank">${String(row.rank).padStart(2,"0")}</span><span class="mini-team">${teamBadge(row.name)}${escapeHtml(row.name)}</span><span class="mini-score">${row.games ? formatScore(row.score) : "—"}<small>pt</small></span></div>`).join("");
 }
 
 function renderStageTabs(){
@@ -246,20 +284,22 @@ function renderRankingTable(){
   const ranking = rankingForStage(activeStage, activeRound);
   const hasScores = ranking.some(row => row.games > 0);
   const filtered = ranking.filter(row => row.name.toLowerCase().includes(search));
-  const detailedCumulative = activeRound === "all" && stageIndex(activeStage) >= 1;
+  const cumulative = activeRound === "all";
+  const detailedCumulative = cumulative && stageIndex(activeStage) >= 1;
+  $("#qualificationCard").hidden = !cumulative;
   renderRankingHead();
   $("#rankingBody").innerHTML = filtered.map(row => {
-    const advancing = hasScores && row.rank <= stage.advance;
-    const status = !row.games ? "待开赛" : advancing ? (activeStage === "final" ? "争冠区" : "晋级区") : "追赶区";
+    const advancing = cumulative && hasScores && row.rank <= stage.advance;
+    const status = !row.games ? "待开赛" : !cumulative ? "本轮排名" : advancing ? (activeStage === "final" ? "争冠区" : "晋级区") : "追赶区";
     const showScore = row.games || (activeRound === "all" && row.initial);
-    const rowStart = `<tr class="${hasScores && row.rank===stage.advance ? "cutoff-row" : ""}"><td class="rank-cell">${String(row.rank).padStart(2,"0")}</td><td><div class="team-cell"><i class="team-monogram">${escapeHtml(monogram(row.name))}</i><span>${escapeHtml(row.name)}<small>${provinceOf(row.name)}</small></span></div></td><td class="score-cell">${showScore ? formatScore(row.score) : "—"}</td>`;
+    const rowStart = `<tr class="${cumulative && hasScores && row.rank===stage.advance ? "cutoff-row" : ""}"><td class="rank-cell">${String(row.rank).padStart(2,"0")}</td><td><div class="team-cell">${teamBadge(row.name)}<span>${escapeHtml(row.name)}<small>${provinceOf(row.name)}</small></span></div></td><td class="score-cell">${showScore ? formatScore(row.score) : "—"}</td>`;
     const statusCell = `<td><span class="status-pill ${advancing ? "" : "out"}"><i></i>${status}</span></td></tr>`;
     if (detailedCumulative) {
       const initialCell = `<td class="round-score-cell initial-score-cell">${row.initial ? formatScore(row.initial) : "—"}</td>`;
       const roundCells = row.roundScores.map(score => `<td class="round-score-cell">${score === null ? "—" : formatScore(score)}</td>`).join("");
       return `${rowStart}${initialCell}${roundCells}${statusCell}`;
     }
-    return `${rowStart}<td class="raw-cell">${row.games ? formatNumber(row.raw) : "—"}</td><td>${row.top ? `+${row.top.toFixed(1)}` : "—"}</td><td class="warning-cell">${row.warnings ? `−${row.warnings}` : "—"}</td>${statusCell}`;
+    return `${rowStart}<td class="raw-cell">${row.games ? formatNumber(row.raw) : "—"}</td><td>${row.top ? row.top.toFixed(1) : "—"}</td><td class="warning-cell">${row.warnings ? `−${row.warnings}` : "—"}</td>${statusCell}`;
   }).join("");
   $("#rankingEmpty").hidden = filtered.length > 0;
   const cutoff = ranking[stage.advance-1];
@@ -288,7 +328,7 @@ function renderMatches(){
   const records = state.records.filter(record => record.stage===activeStage && Number(record.round)===Number(activeLogRound)).sort((a,b)=>Number(a.table)-Number(b.table));
   $("#matchGrid").innerHTML = records.map(record => {
     const scored = scoreRecord(record);
-    return `<article class="panel match-card"><div class="match-head"><div><span class="section-kicker">TABLE ${String(record.table).padStart(2,"0")}</span><h3>第${record.round}轮 · 第${record.table}桌</h3></div><small>${record.source === "dafenglin" ? "大凤林同步" : "手工录入"}</small></div>${scored.map(team=>`<div class="match-team"><span class="match-place">${team.rank}</span><span class="team-cell"><i class="team-monogram">${escapeHtml(monogram(team.name))}</i>${escapeHtml(team.name)}</span><span class="match-points"><b>${formatNumber(team.points)}</b><small>最终持点</small></span><span class="match-score">${formatScore(team.score)}</span></div>`).join("")} ${record.links?.length ? `<div class="match-links">${record.links.map((link,i)=>`<a class="paipu-link" href="${escapeHtml(link)}" target="_blank" rel="noopener">牌谱 ${i+1} ↗</a>`).join("")}</div>` : ""}</article>`;
+    return `<article class="panel match-card"><div class="match-head"><div><span class="section-kicker">TABLE ${String(record.table).padStart(2,"0")}</span><h3>第${record.round}轮 · 第${record.table}桌</h3></div><small>${record.source === "dafenglin" ? "大凤林同步" : "手工录入"}</small></div>${scored.map(team=>`<div class="match-team"><span class="match-place">${team.rank}</span><span class="team-cell">${teamBadge(team.name)}${escapeHtml(team.name)}</span><span class="match-points"><b>${formatNumber(team.points)}</b><small>最终持点</small></span><span class="match-score">${formatScore(team.score)}</span></div>`).join("")} ${record.links?.length ? `<div class="match-links">${record.links.map((link,i)=>`<a class="paipu-link" href="${escapeHtml(link)}" target="_blank" rel="noopener">牌谱 ${i+1} ↗</a>`).join("")}</div>` : ""}</article>`;
   }).join("");
   $("#matchEmpty").hidden = records.length > 0;
 }
