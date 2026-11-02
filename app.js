@@ -42,6 +42,16 @@ const STAGE_INITIAL_SCORES = Object.freeze({
   })
 });
 
+// 组委会另行公布、未包含在大凤林持点数据中的阶段警告。
+// 只在对应阶段的累计榜扣除，不回写单轮成绩，也不影响下一阶段初始分。
+const STAGE_CUMULATIVE_WARNINGS = Object.freeze({
+  stage1: Object.freeze({
+    "北京浪速大学":1,
+    "天津大学":1,
+    "中国政法大学":1
+  })
+});
+
 const OFFICIAL_SOURCE = Object.freeze({
   cid: "219",
   api: "https://cdn.r-mj.com/api/data.php",
@@ -120,12 +130,23 @@ function scoreRecord(record){
   });
 }
 
+function isStageComplete(stageId){
+  const stage = stageById(stageId);
+  const finalRoundTeams = new Set(
+    state.records
+      .filter(record => record.stage === stageId && Number(record.round) === stage.rounds)
+      .flatMap(record => record.teams.map(team => team.name))
+  );
+  return finalRoundTeams.size >= stage.advance * 2;
+}
+
 function teamsForStage(stageId){
   const ownTeams = [...new Set(state.records.filter(record => record.stage === stageId).flatMap(record => record.teams.map(team => team.name)))];
   if (ownTeams.length) return ownTeams;
   const index = stageIndex(stageId);
   if (index <= 0) return state.roster.slice();
   const previous = STAGES[index-1];
+  if (!isStageComplete(previous.id)) return [];
   return rankingForStage(previous.id, "all").slice(0, previous.advance).map(row => row.name);
 }
 
@@ -152,6 +173,15 @@ function rankingForStage(stageId, round="all"){
       row.games += 1;
     });
   });
+
+  if (round === "all") {
+    Object.entries(STAGE_CUMULATIVE_WARNINGS[stageId] || {}).forEach(([name, warning]) => {
+      const row = rows.get(name);
+      if (!row) return;
+      row.score = floor2(row.score - Number(warning));
+      row.warnings += Number(warning);
+    });
+  }
 
   return [...rows.values()].sort((a,b) => b.score-a.score || (detailedCumulative ? a.order-b.order : b.raw-a.raw || a.order-b.order)).map((row,index) => ({...row, rank:index+1}));
 }
