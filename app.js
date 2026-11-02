@@ -131,26 +131,29 @@ function teamsForStage(stageId){
 
 function rankingForStage(stageId, round="all"){
   const stage = stageById(stageId);
+  const detailedCumulative = round === "all" && stageIndex(stageId) >= 1;
   const initialScores = round === "all" ? (STAGE_INITIAL_SCORES[stageId] || {}) : {};
   const teamNames = [...new Set([...Object.keys(initialScores), ...teamsForStage(stageId)])];
   const rows = new Map(teamNames.map((name, index) => {
     const initial = floor2(Number(initialScores[name] || 0));
-    return [name, {name, order:index, score:initial, initial, raw:0, top:0, warnings:0, games:0}];
+    return [name, {name, order:index, score:initial, initial, roundScores:Array(stage.rounds).fill(null), raw:0, top:0, warnings:0, games:0}];
   }));
 
   state.records.filter(record => record.stage === stageId && (round === "all" ? Number(record.round) <= stage.rounds : Number(record.round) === Number(round))).forEach(record => {
     scoreRecord(record).forEach(team => {
-      if (!rows.has(team.name)) rows.set(team.name, {name:team.name, order:rows.size, score:0, initial:0, raw:0, top:0, warnings:0, games:0});
+      if (!rows.has(team.name)) rows.set(team.name, {name:team.name, order:rows.size, score:0, initial:0, roundScores:Array(stage.rounds).fill(null), raw:0, top:0, warnings:0, games:0});
       const row = rows.get(team.name);
       row.score = floor2(row.score + team.score);
-      row.raw += Number(team.points || 0);
+      const roundIndex = Number(record.round) - 1;
+      row.roundScores[roundIndex] = floor2(Number(row.roundScores[roundIndex] || 0) + team.score);
+      if (!detailedCumulative) row.raw += Number(team.points || 0);
       row.top += team.topBonus;
       row.warnings += Number(team.warnings || 0);
       row.games += 1;
     });
   });
 
-  return [...rows.values()].sort((a,b) => b.score-a.score || b.raw-a.raw || a.order-b.order).map((row,index) => ({...row, rank:index+1}));
+  return [...rows.values()].sort((a,b) => b.score-a.score || (detailedCumulative ? a.order-b.order : b.raw-a.raw || a.order-b.order)).map((row,index) => ({...row, rank:index+1}));
 }
 
 function showView(view){
@@ -199,17 +202,34 @@ function renderRoundFilter(){
   $$(".round-chip").forEach(button => button.addEventListener("click",()=>{ activeRound=button.dataset.round; renderRankingTable(); renderRoundFilter(); }));
 }
 
+function renderRankingHead(){
+  const stage = stageById(activeStage);
+  const detailedCumulative = activeRound === "all" && stageIndex(activeStage) >= 1;
+  $("#rankingHead").innerHTML = detailedCumulative
+    ? `<th>名次</th><th>参赛队伍</th><th>累计精算分</th><th>初始分</th>${Array.from({length:stage.rounds},(_,i)=>`<th>第${i+1}轮</th>`).join("")}<th>状态</th>`
+    : `<th>名次</th><th>参赛队伍</th><th>阶段精算分</th><th>原始持点</th><th>区间奖</th><th>警告</th><th>状态</th>`;
+}
+
 function renderRankingTable(){
   const search = $("#teamSearch").value.trim().toLowerCase();
   const stage = stageById(activeStage);
   const ranking = rankingForStage(activeStage, activeRound);
   const hasScores = ranking.some(row => row.games > 0);
   const filtered = ranking.filter(row => row.name.toLowerCase().includes(search));
+  const detailedCumulative = activeRound === "all" && stageIndex(activeStage) >= 1;
+  renderRankingHead();
   $("#rankingBody").innerHTML = filtered.map(row => {
     const advancing = hasScores && row.rank <= stage.advance;
     const status = !row.games ? "待开赛" : advancing ? (activeStage === "final" ? "争冠区" : "晋级区") : "追赶区";
     const showScore = row.games || (activeRound === "all" && row.initial);
-    return `<tr class="${hasScores && row.rank===stage.advance ? "cutoff-row" : ""}"><td class="rank-cell">${String(row.rank).padStart(2,"0")}</td><td><div class="team-cell"><i class="team-monogram">${escapeHtml(monogram(row.name))}</i><span>${escapeHtml(row.name)}<small>${provinceOf(row.name)}${activeRound === "all" && row.initial ? ` · 初始 ${formatScore(row.initial)}` : ""}</small></span></div></td><td class="score-cell">${showScore ? formatScore(row.score) : "—"}</td><td class="raw-cell">${row.games ? formatNumber(row.raw) : "—"}</td><td>${row.top ? `+${row.top.toFixed(1)}` : "—"}</td><td class="warning-cell">${row.warnings ? `−${row.warnings}` : "—"}</td><td><span class="status-pill ${advancing ? "" : "out"}"><i></i>${status}</span></td></tr>`;
+    const rowStart = `<tr class="${hasScores && row.rank===stage.advance ? "cutoff-row" : ""}"><td class="rank-cell">${String(row.rank).padStart(2,"0")}</td><td><div class="team-cell"><i class="team-monogram">${escapeHtml(monogram(row.name))}</i><span>${escapeHtml(row.name)}<small>${provinceOf(row.name)}</small></span></div></td><td class="score-cell">${showScore ? formatScore(row.score) : "—"}</td>`;
+    const statusCell = `<td><span class="status-pill ${advancing ? "" : "out"}"><i></i>${status}</span></td></tr>`;
+    if (detailedCumulative) {
+      const initialCell = `<td class="round-score-cell initial-score-cell">${row.initial ? formatScore(row.initial) : "—"}</td>`;
+      const roundCells = row.roundScores.map(score => `<td class="round-score-cell">${score === null ? "—" : formatScore(score)}</td>`).join("");
+      return `${rowStart}${initialCell}${roundCells}${statusCell}`;
+    }
+    return `${rowStart}<td class="raw-cell">${row.games ? formatNumber(row.raw) : "—"}</td><td>${row.top ? `+${row.top.toFixed(1)}` : "—"}</td><td class="warning-cell">${row.warnings ? `−${row.warnings}` : "—"}</td>${statusCell}`;
   }).join("");
   $("#rankingEmpty").hidden = filtered.length > 0;
   const cutoff = ranking[stage.advance-1];
