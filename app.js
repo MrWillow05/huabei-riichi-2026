@@ -430,7 +430,9 @@ function parseDafenglinRound(data, classes, teams, externalRound){
     if (count!==4) return [];
     const last=logs[logs.length-1];
     const captainLogs=logs.filter(log=>Number(log.rowi)>=8);
-    const captainComplete=captainLogs.length>=2;
+    // An online table also ends when a team busts in the first captain hanchan.
+    const endedByBust=stageById(mapped.stage).online && Array.from({length:4},(_,i)=>Number(last[`num${i+1}`])).some(points=>points<0);
+    const captainComplete=captainLogs.length>=2 || (captainLogs.length===1 && endedByBust);
     const captainTotals=Array.from({length:4},(_,i)=>captainLogs.reduce((sum,log)=>sum+Number(log[`pint${i+1}`]||0),0));
     const topIndex=captainComplete ? captainTotals.indexOf(Math.max(...captainTotals)) : -1;
     const recordTeams=Array.from({length:4},(_,i)=>{
